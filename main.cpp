@@ -1757,26 +1757,26 @@ bool EditMemory(MAFS Head,int pid,string value,int ValueType){
             switch (ValueType){
                 case 0:
 
-                    pwrite64(handle,int_value_real,4,address);
+                    pwrite64(handle,&int_value_real,4,address);
 
                     break;
                 case 1:
 
-                    pwrite64(handle,float_value_real,4,address);
+                    pwrite64(handle,&float_value_real,4,address);
 
                     break;
                 case 2:
 
-                    pwrite64(handle,double_value_real,8,address);
+                    pwrite64(handle,&double_value_real,8,address);
 
                     break;
                 case 3:
 
-                    pwrite64(handle,WORD_value_real,2,address);
+                    pwrite64(handle,&WORD_value_real,2,address);
 
                     break;
                 case 4:
-                    pwrite64(handle,BYTE_value_real,1,address);
+                    pwrite64(handle,&BYTE_value_real,1,address);
 
                     break;
             }
