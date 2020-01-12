@@ -1715,7 +1715,7 @@ MAFS UnionSearch_Filter_Rangevalue(MAFS Head,int pid,string value,int ValueType)
     return Address_From_FilterSearch_Head;
 };
 
-bool EditMemory(MAFS Head,int pid,string value,int ValueType){
+bool EditMemory(MAFS Head,int pid,string value,int ValueType,int WantedEditAddressCout){
     MAFS pointer = Head;
 
     char lj[] = "";
@@ -1749,10 +1749,20 @@ bool EditMemory(MAFS Head,int pid,string value,int ValueType){
             break;
 
     }
-
+    int count = 0;
     try {
 
         while (pointer){
+            count++;
+            if (WantedEditAddressCout != -1){
+                goto BeginWrite;
+            } else if(count <= WantedEditAddressCout){
+                goto BeginWrite;
+            }else{
+                break;
+            }
+
+            BeginWrite:
             long int address = (*pointer).Address;
             switch (ValueType){
                 case 0:
@@ -1858,12 +1868,45 @@ int main() {
     print(PKGN);
     int pid = getPID(PKGN);
 
+
+
+
+
+    
     int Mode = 0;
     if (Mode == 0){
         StopPID(pid);
-        MAFS Address_From_Fs = UnionSearch_First(1, pid,  "1", 0);
-        Print_Linked_list_MAFS(Address_From_Fs);
-        bool Is_ok = EditMemory(Address_From_Fs,pid,"2",0);
+
+
+        //修改的方法：以GG修改器为例
+//      gg.setrange(BAD)
+//    1.gg.search("1.1F;1.2~1.3F;3D")
+//    2.gg.search("1.2~1.3F")
+//    3.gg.getResualt(30)
+//    4.gg.edit("3D")
+
+
+        MAFS Address_From_Fs = UnionSearch_First(1, pid,  "1.1", 1);
+        MAFS Address_From_Fs1 = UnionSearch_First(1, pid,  "1.2~1.3", 1);
+        MAFS Address_From_Fs2 = UnionSearch_First(1, pid,  "3", 0);
+
+        MAFS ADD;
+        MAFS ADD1;
+        MergeLinkList_LL(Address_From_Fs,Address_From_Fs1,ADD);
+        MergeLinkList_LL(ADD,Address_From_Fs2,ADD1);
+
+        string ab = "1.2~1.3";
+
+
+        MAFS ADD2;
+        ADD2 = UnionSearch_Filter_Rangevalue(ADD1,pid,ab,1);
+
+
+
+        //Print_Linked_list_MAFS(Address_From_Fs);
+
+
+        bool Is_ok = EditMemory(Address_From_Fs,pid,"2",0,30);
         if (Is_ok){
             print("Edit ok --> ok");
         } else{
@@ -1872,8 +1915,8 @@ int main() {
         ResetFromStopPID(pid);
     } else if (Mode == 1){
         MAFS Address_From_Fs = UnionSearch_First(1, pid,  "1", 0);
-        Print_Linked_list_MAFS(Address_From_Fs);
-        bool Is_ok = EditMemory(Address_From_Fs,pid,"2",0);
+        //Print_Linked_list_MAFS(Address_From_Fs);
+        bool Is_ok = EditMemory(Address_From_Fs,pid,"2",0,30);
         if (Is_ok){
             print("Edit ok --> ok");
         } else{
