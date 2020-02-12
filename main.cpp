@@ -1857,7 +1857,462 @@ double hexToDec(char *str)
     return sumd;
 }
 
+//----------------------------------------------------------------------------------------
+// 偏移搜索部分
+// 先用第一个搜索出来数值，然后存储在链表里面，再搜索偏移的地址即可
+MAFS OFFSETSearch_First(int Rangetype,int pid,string value,int ValueType){
+    cout << "Begin Search" << endl;
 
+    MAR Head = SetMemorySearchRange(Rangetype,pid);
+    print("GetMARHead-->OK");
+    MAFS Address_From_FirstSearch_End = nullptr;
+    MAFS Address_From_FirstSearch_Begin = nullptr;
+    MAFS Address_From_FirstSearch_Head = nullptr;
+    Address_From_FirstSearch_Head = Address_From_FirstSearch_Begin = Address_From_FirstSearch_End = (MAFS)malloc(MemoryAddressFromSearch_Size);
+    print("PREPARE1-->OK");
+    char valueChar[] = "";
+    String_To_Char(valueChar,value);
+    print("PREPARE2-->OK");
+    int num_count = 0;
+
+    if (strstr(valueChar,"~")){
+        char value_From[] = "";
+        char value_To[] = "";
+
+        string From_Value = mySplit_Result(valueChar,0);
+        string To_Value = mySplit_Result(valueChar,1);
+
+        String_To_Char(value_From,From_Value);
+        String_To_Char(value_To,To_Value);
+
+        int int_value_real_From,int_value_real_To;
+        float float_value_real_from,float_value_real_to;
+        double double_value_real_from,double_value_real_to;
+        WORD WORD_value_real_from,WORD_value_real_to;//需要转换int再转换char
+        BYTE BYTE_value_real_from,BYTE_value_real_to;//需要转化int再转换short
+
+        switch (ValueType){
+            case 0:
+                int_value_real_From = atoi(value_From);
+                int_value_real_To = atoi(value_To);
+
+                break;
+            case 1:
+                float_value_real_from = atof(value_From);
+                float_value_real_to = atof(value_To);
+                break;
+            case 2:
+                double_value_real_from = hexToDec(value_From);
+                double_value_real_to = hexToDec(value_To);
+                break;
+            case 3:
+                WORD_value_real_from = (WORD)atoi(value_From);
+                WORD_value_real_to = (WORD)atoi(value_To);
+                break;
+            case 4:
+                BYTE_value_real_from = (BYTE)atoi(value_From);
+                BYTE_value_real_to = (BYTE)atoi(value_To);
+                break;
+
+        }
+
+        char lj[] = "";
+        sprintf(lj,"/proc/%d/mem",pid);
+        int handle = open(lj,00000002);
+
+
+        if (ValueType == 0){
+            buff[1024] = {0};
+
+        } else if (ValueType == 1){
+            buff1[1024] = {0};
+
+        } else if (ValueType == 2){
+            buff2[1024] = {0};
+
+        } else if (ValueType == 3){
+            buff3[1024] = {0};
+
+        } else if (ValueType == 4){
+            buff4[1024] = {0};
+
+        }
+
+
+        //pread=read+lseek,所以其实可以不用lseek
+        //clion中当前编译器的linux内核版本不支持pread64
+
+        MAR pointer = Head;
+        int IsRight_address = 0;
+
+        printf("BeginSearchValue");
+        while (pointer){
+            for (long int i = (*pointer).Begin_address; i <= (*pointer).End_address; i = i + 0x4) {
+                switch (ValueType){
+                    case 0:
+                        memset(buff,0,4);
+                        pread64(handle,buff,4,i);
+                        if (buff[0] >= int_value_real_From && buff[0] <= int_value_real_To){
+                            IsRight_address = 1;
+                        } else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 1:
+                        memset(buff1,0,4);
+                        pread64(handle,buff1,4,i);
+                        if (buff1[0] >= float_value_real_from && buff1[0] <= float_value_real_to){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 2:
+                        memset(buff2,0,8);
+                        pread64(handle,buff2,8,i);
+                        if (buff2[0] >= double_value_real_from && buff2[0] <= double_value_real_to){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 3:
+                        memset(buff3,0,2);
+                        pread64(handle,buff3,2,i);
+                        if (buff3[0] >= WORD_value_real_from && buff3[0] <= WORD_value_real_to){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 4:
+                        memset(buff4,0,1);
+                        pread64(handle,buff4,1,i);
+                        if (buff4[0] >= BYTE_value_real_from && buff4[0] <= BYTE_value_real_to){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                }
+                if (IsRight_address == 1){
+                    Address_From_FirstSearch_End->Address = i;
+                    print("address:");
+                    cout << i << endl;
+                    if (num_count == 0){
+                        num_count ++;
+                        Address_From_FirstSearch_End->next=nullptr;
+                        Address_From_FirstSearch_Begin = Address_From_FirstSearch_End;
+                        Address_From_FirstSearch_Head = Address_From_FirstSearch_Begin;
+                    } else{
+                        num_count ++;
+                        Address_From_FirstSearch_End->next = nullptr;
+                        Address_From_FirstSearch_Begin->next = Address_From_FirstSearch_End;
+                        Address_From_FirstSearch_Begin = Address_From_FirstSearch_End;
+                    }
+                    Address_From_FirstSearch_End = (MAFS)malloc(MemoryAddressFromSearch_Size);
+
+                }
+
+            }
+            pointer = (*pointer).next;
+
+        }
+        close(handle);
+        free(Address_From_FirstSearch_End);
+        return Address_From_FirstSearch_Head;
+
+
+
+
+
+    }else{
+        char value_[] = "";
+
+
+        String_To_Char(value_,value);
+
+
+        int int_value_real;
+        float float_value_real;
+        double double_value_real;
+        WORD WORD_value_real;//需要转换int再转换char
+        BYTE BYTE_value_real;//需要转化int再转换short
+
+        switch (ValueType){
+            case 0:
+                int_value_real = atoi(value_);
+                break;
+            case 1:
+                float_value_real = atof(value_);
+                break;
+            case 2:
+                double_value_real = hexToDec(value_);
+                break;
+            case 3:
+                WORD_value_real = (WORD)atoi(value_);
+                break;
+            case 4:
+                BYTE_value_real = (BYTE)atoi(value_);
+                break;
+
+        }
+
+        char lj[] = "";
+        sprintf(lj,"/proc/%d/mem",pid);
+        int handle = open(lj,00000002);
+
+
+        if (ValueType == 0){
+            buff[1024] = {0};
+
+        } else if (ValueType == 1){
+            buff1[1024] = {0};
+
+        } else if (ValueType == 2){
+            buff2[1024] = {0};
+
+        } else if (ValueType == 3){
+            buff3[1024] = {0};
+
+        } else if (ValueType == 4){
+            buff4[1024] = {0};
+
+        }
+
+
+        //pread=read+lseek,所以其实可以不用lseek
+        //clion中当前编译器的linux内核版本不支持pread64
+
+        MAR pointer = Head;
+        int IsRight_address = 0;
+
+//        int int_value_real;
+//        float float_value_real;
+//        double double_value_real;
+//        WORD WORD_value_real;//需要转换int再转换char
+//        BYTE BYTE_value_real;//需要转化int再转换short
+        while (pointer){
+            for (long int i = (*pointer).Begin_address; i <= (*pointer).End_address; i = i + 0x4) {
+                switch (ValueType){
+                    case 0:
+                        memset(buff,0,4);
+                        pread64(handle,buff,4,i);
+                        if (buff[0] == int_value_real){
+                            IsRight_address = 1;
+                        } else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 1:
+                        memset(buff1,0,4);
+                        pread64(handle,buff1,4,i);
+                        if (buff1[0] == float_value_real){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 2:
+
+                        memset(buff2,0,8);
+                        pread64(handle,buff2,8,i);
+                        if (buff2[0] == double_value_real){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 3:
+                        memset(buff3,0,2);
+                        pread64(handle,buff3,2,i);
+                        if (buff3[0] == WORD_value_real){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                    case 4:
+                        memset(buff4,0,1);
+                        pread64(handle,buff4,1,i);
+                        if (buff4[0] == BYTE_value_real){
+                            IsRight_address = 1;
+                        }else{
+                            IsRight_address = 0;
+                        }
+                        break;
+                }
+                if (IsRight_address == 1){
+                    Address_From_FirstSearch_End->Address = i;
+                    cout << i << endl;
+
+
+                    if (num_count == 0){
+                        num_count ++;
+                        Address_From_FirstSearch_End->next=nullptr;
+                        Address_From_FirstSearch_Begin = Address_From_FirstSearch_End;
+                        Address_From_FirstSearch_Head = Address_From_FirstSearch_Begin;
+                    } else{
+                        num_count ++;
+                        Address_From_FirstSearch_End->next = nullptr;
+                        Address_From_FirstSearch_Begin->next = Address_From_FirstSearch_End;
+                        Address_From_FirstSearch_Begin = Address_From_FirstSearch_End;
+                    }
+                    Address_From_FirstSearch_End = (MAFS)malloc(MemoryAddressFromSearch_Size);
+
+                }
+
+
+            }
+            cout << "next" << endl;
+            pointer = (*pointer).next;
+        }
+        close(handle);
+        free(Address_From_FirstSearch_End);
+        return Address_From_FirstSearch_Head;
+    }
+}
+MAFS OFFSETSearch_value(MAFS Head,int pid,string value,int ValueType,int offset){
+    MAFS pointer = Head;
+    //mem文件读取
+    char lj[] = "";
+    sprintf(lj,"/proc/%d/mem",pid);
+    int handle = open(lj,00000002);
+
+    //返回的新的MAFS
+    MAFS Address_From_FilterSearch_End = nullptr;
+    MAFS Address_From_FilterSearch_Begin = nullptr;
+    MAFS Address_From_FilterSearch_Head = nullptr;
+    Address_From_FilterSearch_Head = Address_From_FilterSearch_Begin = Address_From_FilterSearch_End = (MAFS)malloc(MemoryAddressFromSearch_Size);
+
+
+    char value_[] = "";
+    String_To_Char(value_,value);
+
+
+    int IsRight_address = 0;
+
+    int int_value_real;
+    float float_value_real;
+    double double_value_real;
+    WORD WORD_value_real;//需要转换int再转换char
+    BYTE BYTE_value_real;//需要转化int再转换short
+
+    switch (ValueType){
+        case 0:
+            int_value_real = atoi(value_);
+            break;
+        case 1:
+            float_value_real = atof(value_);
+            break;
+        case 2:
+            double_value_real = hexToDec(value_);
+            break;
+        case 3:
+            WORD_value_real = (WORD)atoi(value_);
+            break;
+        case 4:
+            BYTE_value_real = (BYTE)atoi(value_);
+            break;
+
+    }
+
+    if (ValueType == 0){
+        buff[1024] = {0};
+
+    } else if (ValueType == 1){
+        buff1[1024] = {0};
+
+    } else if (ValueType == 2){
+        buff2[1024] = {0};
+
+    } else if (ValueType == 3){
+        buff3[1024] = {0};
+
+    } else if (ValueType == 4){
+        buff4[1024] = {0};
+
+    }
+
+
+    int num_count = 0;
+    while (pointer){
+        long int Address_Filter = (*pointer).Address;
+
+        switch (ValueType){
+            case 0:
+                memset(buff,0,4);
+                pread64(handle,buff,4,Address_Filter + offset);
+                if (buff[0] == int_value_real){
+                    IsRight_address = 1;
+                } else{
+                    IsRight_address = 0;
+                }
+                break;
+            case 1:
+                memset(buff1,0,4);
+                pread64(handle,buff1,4,Address_Filter + offset);
+                if (buff1[0] == float_value_real){
+                    IsRight_address = 1;
+                }else{
+                    IsRight_address = 0;
+                }
+                break;
+            case 2:
+                memset(buff2,0,8);
+                pread64(handle,buff2,8,Address_Filter + offset);
+                if (buff2[0] == double_value_real){
+                    IsRight_address = 1;
+                }else{
+                    IsRight_address = 0;
+                }
+                break;
+            case 3:
+                memset(buff3,0,2);
+                pread64(handle,buff3,2,Address_Filter + offset);
+                if (buff3[0] == WORD_value_real){
+                    IsRight_address = 1;
+                }else{
+                    IsRight_address = 0;
+                }
+                break;
+            case 4:
+                memset(buff4,0,1);
+                pread64(handle,buff4,1,Address_Filter + offset);
+                if (buff4[0] == BYTE_value_real){
+                    IsRight_address = 1;
+                }else{
+                    IsRight_address = 0;
+                }
+                break;
+        }
+
+        if (IsRight_address == 1){
+            Address_From_FilterSearch_End->Address = Address_Filter;
+            cout << Address_Filter << endl;
+
+
+            if (num_count == 0){
+                num_count ++;
+                Address_From_FilterSearch_End->next=nullptr;
+                Address_From_FilterSearch_Begin = Address_From_FilterSearch_End;
+                Address_From_FilterSearch_Head = Address_From_FilterSearch_Begin;
+            } else{
+                num_count ++;
+                Address_From_FilterSearch_End->next = nullptr;
+                Address_From_FilterSearch_Begin->next = Address_From_FilterSearch_End;
+                Address_From_FilterSearch_Begin = Address_From_FilterSearch_End;
+            }
+            Address_From_FilterSearch_End = (MAFS)malloc(MemoryAddressFromSearch_Size);
+
+        }
+
+        pointer = (*pointer).next;
+
+    }
+    free(Address_From_FilterSearch_End);
+    return Address_From_FilterSearch_Head;
+};
 
 
 int main() {
@@ -1873,7 +2328,7 @@ int main() {
 
 
     
-    int Mode = 0;
+    int Mode = 2;
     if (Mode == 0){
         StopPID(pid);
 
@@ -1922,8 +2377,23 @@ int main() {
         } else{
             print("Edit --> false");
         }
-    } else{
-        print("please set Mode");
+    } else if(Mode == 2){
+        print("begin offset search");
+        MAFS Address_From_Fs = OFFSETSearch_First(8,pid,"800~2000",0);
+        MAFS Address_From_Fs1 = OFFSETSearch_value(Address_From_Fs,pid,"136068113",0,-8);
+        MAFS Address_From_Fs2 = OFFSETSearch_value(Address_From_Fs1,pid,"1",0,-12);
+        MAFS Address_From_Fs3 = OFFSETSearch_value(Address_From_Fs2,pid,"136068113",0,-16);
+        bool Is_ok = EditMemory(Address_From_Fs3,pid,"999999999",0,-1);
+        if (Is_ok){
+            print("Edit ok --> ok");
+        } else{
+            print("Edit --> false");
+        }
+        Address_From_Fs = nullptr;
+        Address_From_Fs1 = nullptr;
+        Address_From_Fs2 = nullptr;
+        Address_From_Fs3 = nullptr;
+
     }
 
     return 0;
